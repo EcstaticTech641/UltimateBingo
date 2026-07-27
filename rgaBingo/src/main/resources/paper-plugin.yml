@@ -1,0 +1,10 @@
+name: rgaBingo
+version: 1.0.0
+main: com.ronlab.bingo.BingoPlugin
+api-version: '26.2'
+dependencies:
+  server:
+    RonlabGameAssistant:
+      load: BEFORE
+      required: true
+      join-classpath: true

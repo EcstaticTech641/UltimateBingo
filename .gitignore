@@ -1,2 +1,34 @@
-# Project exclude paths
-/target/
+# Build outputs
+target/
+**/target/
+build/
+**/build/
+*.jar
+*.war
+*.ear
+
+# IDE and Editor Files
+.idea/
+*.iml
+*.ipr
+*.iws
+.settings/
+.classpath
+.project
+.vscode/
+*.swp
+*~
+
+# Operating System Files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Server & Runtime Logs / Data
+run/
+logs/
+*.log
+plugins/
+world/
+world_nether/
+world_the_end/

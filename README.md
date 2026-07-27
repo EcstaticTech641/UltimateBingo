@@ -1,189 +1,77 @@
-# UltimateBingo - Live Bingo Card Map Feature
+# UltimateBingo & rgaBingo Companion Plugin
 
-## 📋 Overview
-
-This is your complete UltimateBingo plugin with the new **Live Bingo Card Map** feature! Players now receive a Minecraft map item that displays their bingo card in real-time, showing all items with colored squares that update as they complete tasks.
-
-## 🎯 What's New?
-
-- **Visual Bingo Cards**: Instead of a compass, players get a map showing their actual bingo card
-- **Real-time Updates**: The map automatically updates when items are completed (turns green)
-- **Material Colors**: 200+ materials mapped to representative colors for easy identification
-- **Interactive**: Hold to view, right-click to open GUI (same as before)
-- **All Sizes**: Works with 3x3, 4x4, and 5x5 cards
-- **All Modes**: Traditional, Group, Teams, Speedrun, and Shuffle mode
-
-## 📁 What's Included
-
-### Source Code
-- `src/` - Complete plugin source code with all modifications
-- `pom.xml` - Maven build configuration (unchanged)
-
-### Documentation
-- `QUICK_START.md` - Quick reference guide
-- `LIVE_BINGO_MAP_IMPLEMENTATION.md` - Comprehensive implementation details
-- `CHANGES_SUMMARY.md` - Overview of all changes
-- `DETAILED_MODIFICATIONS.md` - File-by-file modification reference
-
-## 🚀 Quick Start
-
-### Building
-```bash
-cd UltimateBingo-LiveMap
-mvn clean package
-```
-
-Your JAR will be in `target/UltimateBingo-1.1.0.jar`
-
-### Installing
-1. Stop your server
-2. Replace your existing UltimateBingo JAR
-3. Start your server
-4. Done! No config changes needed
-
-## ✨ Key Features
-
-### For Players
-- Hold the map to see your bingo card
-- Right-click to open the full GUI
-- Watch items turn green as you complete them
-- White checkmark appears on completed items
-
-### For Admins
-- No configuration changes needed
-- Works with all existing features
-- Fully compatible with teams, shuffle mode, etc.
-- Auto-updates - set and forget
-
-## 📊 New Files
-
-Three new Java files:
-1. **BingoCardMapRenderer.java** - Renders cards on maps
-2. **BingoMapManager.java** - Manages map lifecycle
-3. **BingoMapInteractListener.java** - Handles interactions
-
-## 🔧 Modified Files
-
-Five existing files updated:
-1. **UltimateBingo.java** - Added map manager
-2. **BingoManager.java** - Added map updates
-3. **BingoFunctions.java** - Switched to maps
-4. **BingoInteractListener.java** - Updated for maps
-5. **No changes to pom.xml** - Uses standard Bukkit API
-
-## 🎨 Material Colors
-
-The map displays different colors for different materials:
-- **Diamonds** → Bright cyan
-- **Emeralds** → Bright green  
-- **Gold** → Yellow
-- **Iron** → Light gray
-- **Wood** → Brown tones
-- **Stone** → Gray tones
-- **Plants** → Green shades
-- **Flowers** → Various bright colors
-- **And 200+ more!**
-
-## ✅ Compatibility
-
-- ✅ All game modes (Traditional, Group, Teams, Speedrun, Shuffle)
-- ✅ All card sizes (3x3, 4x4, 5x5)
-- ✅ All win conditions (Full card, Single row)
-- ✅ PlaceholderAPI integration
-- ✅ Signs integration
-- ✅ Teams system
-- ✅ Existing features unchanged
-
-## 📖 Documentation
-
-| Document | Purpose |
-|----------|---------|
-| `QUICK_START.md` | Fast overview and setup guide |
-| `LIVE_BINGO_MAP_IMPLEMENTATION.md` | Complete technical documentation |
-| `CHANGES_SUMMARY.md` | Architecture and integration overview |
-| `DETAILED_MODIFICATIONS.md` | Exact code changes reference |
-
-## 🧪 Testing Checklist
-
-- [ ] Players receive map (not compass) when game starts
-- [ ] Holding map shows bingo card grid
-- [ ] Right-clicking map opens GUI
-- [ ] Picking up items updates map (turns green)
-- [ ] Shuffle mode updates maps correctly
-- [ ] Multiple players each see their own card
-- [ ] Works with all game modes
-- [ ] Works with all card sizes
-
-## 💡 How It Works
-
-```
-Game Start → Players get map item (FILLED_MAP)
-              ↓
-Hold map → See live bingo card grid
-              ↓
-Pick up item → Map updates (green background + checkmark)
-              ↓
-Right-click → Opens GUI (same as before)
-```
-
-## 🎓 Technical Details
-
-- **Rendering**: Uses Bukkit's MapView API for drawing
-- **Colors**: MapPalette color matching for 200+ materials
-- **Updates**: Event-driven re-rendering on card changes
-- **Performance**: Change detection prevents unnecessary renders
-- **Memory**: Only active player maps stored
-
-## 🔮 Future Possibilities
-
-The architecture supports:
-- Custom render styles
-- Item labels/names
-- Progress indicators
-- Animation effects
-- Theme customization
-- Minimap modes
-
-## 📝 Version Info
-
-- **Plugin**: UltimateBingo 1.1.0
-- **Minecraft**: 1.20.4+
-- **API**: Spigot/Bukkit 1.20.4+
-- **Optional**: PlaceholderAPI 2.11.6+
-
-## 🆘 Support
-
-Read the documentation files for:
-- **Quick help** → `QUICK_START.md`
-- **Full details** → `LIVE_BINGO_MAP_IMPLEMENTATION.md`
-- **Code changes** → `DETAILED_MODIFICATIONS.md`
-- **Architecture** → `CHANGES_SUMMARY.md`
-
-## 🎉 Summary
-
-This is a complete, ready-to-build implementation of the live bingo card map feature. Simply compile and deploy to your server - all existing features work exactly as before, with the new visual map enhancement!
+This repository contains the legacy **UltimateBingo** codebase as well as the modern CPMK Greenfield Companion plugin **rgaBingo** (`com.ronlab.bingo`).
 
 ---
 
-**Created**: January 30, 2026  
-**Author**: Implementation for UltimateBingo plugin  
-**License**: GNU General Public License v3.0 (same as original)
+## 📦 rgaBingo (RGA Companion Minigame Plugin)
 
+`rgaBingo` is a pure event-driven minigame companion plugin engineered for the **RonlabGameAssistant (RGA)** orchestrator ecosystem. It targets **Paper 26.2** and **Java 25**, featuring dynamic 54-slot chest GUI card rendering and a packet-based FastBoard sidebar HUD.
 
-## Custom Bingo Map Background (Optional)
+### 🎯 Key Architectural Rules & Principles
 
-You can optionally provide a custom background overlay image for the live bingo map.
+- **Stateless Orchestration**: World copying, session lifecycle, inventory isolation, and player state management are handled entirely by RGA.
+- **Zero Command Layer**: No player-facing `/bingo` commands. Session entry is handled via RGA (`rga:join_minigame bingo`), and mid-game card access is bound to a hotbar item (Slot 8) or offhand right-click.
+- **Event-Driven Engine**: Listens to `MinigameStartEvent` to initialize 5x5 card grids and run a 3-second pre-match countdown (frozen XYZ movement, note block audio cues).
+- **Fast Short-Circuiting**: Inventory listeners (`EntityPickupItemEvent`, `CraftItemEvent`, `InventoryClickEvent`) short-circuit early for non-participants to preserve server performance.
+- **Packet-Based Scoreboard**: Uses shaded `fr.mrmicky:fastboard` (relocated to `com.ronlab.bingo.fastboard`) for real-time progress and match timing.
+- **Spectator & Win Flow**: On Bingo line or blackout completion, winner transitions to Spectator mode via `rgaControl.setSpectator(player, true)` and fires `GameSessionRequestConcludeEvent`.
 
-- **Path:** `plugins/UltimateBingo/map/base.png`
-- **Format:** PNG
-- **Size:** **128x128** pixels
+### 🚀 Building rgaBingo
 
-If the image is present and valid, Ultimate Bingo will draw the built-in parchment background first, then overlay your image (PNG transparency supported), then render the dynamic game summary elements (text, grid, borders).
+#### Prerequisites
+- JDK 25
+- Apache Maven 3.9+
 
-### Hot Reload
+#### Build Command
+```bash
+cd rgaBingo
+mvn clean package
+```
 
-After replacing `map/base.png`, run:
+The compiled, shaded JAR will be produced at:
+`rgaBingo/target/rgaBingo-1.0.0.jar`
 
-- `/bingo reload`
+---
 
-This reloads the config **and** the map background cache, and forces all active bingo maps to refresh.
+## 📋 Plugin Manifest (`paper-plugin.yml`)
+
+```yaml
+name: rgaBingo
+version: 1.0.0
+main: com.ronlab.bingo.BingoPlugin
+api-version: '26.2'
+dependencies:
+  server:
+    RonlabGameAssistant:
+      load: BEFORE
+      required: true
+      join-classpath: true
+```
+
+---
+
+## 📂 Project Structure
+
+```text
+UltimateBingo/
+├── .gitignore                      # Standard Java/Maven/IDE gitignore
+├── README.md                       # Repository documentation
+├── pom.xml                         # Legacy UltimateBingo POM
+├── src/                            # Legacy UltimateBingo source code
+└── rgaBingo/                       # RGA CPMK Companion Plugin
+    ├── pom.xml                     # Java 25 Maven build specification
+    └── src/
+        └── main/
+            ├── java/
+            │   ├── com/ronlab/bingo/      # Companion core (Plugin, listeners, model, GUI, HUD)
+            │   └── com/ronlab/rga/api/    # RGA Orchestrator API & events
+            └── resources/
+                └── paper-plugin.yml   # Paper 26.2 plugin manifest
+```
+
+---
+
+## 📜 License & Governance
+
+This project adheres to Ronlab ecosystem standards and software engineering best practices.
