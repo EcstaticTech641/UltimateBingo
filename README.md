@@ -61,6 +61,7 @@ UltimateBingo/
 ├── src/                            # Legacy UltimateBingo source code
 └── rgaBingo/                       # RGA CPMK Companion Plugin
     ├── pom.xml                     # Java 25 Maven build specification
+    ├── README.md                   # Companion plugin quickstart & documentation
     └── src/
         └── main/
             ├── java/

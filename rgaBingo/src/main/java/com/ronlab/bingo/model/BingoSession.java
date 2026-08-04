@@ -216,9 +216,10 @@ public class BingoSession {
             }
         }
 
-        // Transition winner to spectator via RGA control
+        // Transition winner to spectator via RGA control and request session conclusion
         if (rgaControl != null) {
             rgaControl.setSpectator(winner, true);
+            rgaControl.requestConclude(sessionId, winner.getName());
         }
 
         // Fire GameSessionRequestConcludeEvent to notify RGA orchestrator
