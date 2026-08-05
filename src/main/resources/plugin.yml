@@ -1,7 +1,7 @@
 name: UltimateBingo
 version: '${project.version}'
 main: io.shantek.UltimateBingo
-api-version: '1.20'
+api-version: '26.2'
 
 # This sets PlaceholderAPI as an optional dependency for your plugin.
 softdepend: [PlaceholderAPI, WorldGuard]

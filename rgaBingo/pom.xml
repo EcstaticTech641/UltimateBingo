@@ -36,6 +36,12 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
+            <groupId>com.ronlab</groupId>
+            <artifactId>rga-api</artifactId>
+            <version>1.13.0</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
             <groupId>fr.mrmicky</groupId>
             <artifactId>fastboard</artifactId>
             <version>2.2.0</version>

@@ -1,10 +1,12 @@
 package com.ronlab.bingo;
 
 import com.ronlab.bingo.hud.BingoScoreboardManager;
-import com.ronlab.bingo.listener.BingoLifecycleListener;
-import com.ronlab.bingo.listener.BingoListener;
+import com.ronlab.bingo.listener.BingoEventListener;
 import com.ronlab.bingo.model.BingoSession;
+import com.ronlab.rga.api.RGASessionControl;
+import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
+import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.Map;
@@ -14,16 +16,26 @@ public class BingoPlugin extends JavaPlugin {
 
     private final Map<String, BingoSession> activeSessions = new ConcurrentHashMap<>();
     private BingoScoreboardManager scoreboardManager;
+    private RGASessionControl rgaSessionControl;
 
     @Override
     public void onEnable() {
+        saveDefaultConfig();
         getLogger().info("Initializing rgaBingo v" + getPluginMeta().getVersion() + " (CPMK Companion Mode)");
 
         scoreboardManager = new BingoScoreboardManager();
 
-        // Register event listeners
-        getServer().getPluginManager().registerEvents(new BingoLifecycleListener(this), this);
-        getServer().getPluginManager().registerEvents(new BingoListener(this), this);
+        // Resolve RGA Session Control service if available
+        RegisteredServiceProvider<RGASessionControl> rsp = Bukkit.getServicesManager().getRegistration(RGASessionControl.class);
+        if (rsp != null) {
+            rgaSessionControl = rsp.getProvider();
+            getLogger().info("Successfully hooked into RGASessionControl service.");
+        } else {
+            getLogger().info("RGASessionControl service not found in ServicesManager; operating in standalone event bus mode.");
+        }
+
+        // Register consolidated event listener
+        getServer().getPluginManager().registerEvents(new BingoEventListener(this), this);
 
         getLogger().info("rgaBingo successfully enabled.");
     }
@@ -44,27 +56,25 @@ public class BingoPlugin extends JavaPlugin {
         getLogger().info("rgaBingo disabled.");
     }
 
-    public void registerSession(String sessionId, BingoSession session) {
-        activeSessions.put(sessionId, session);
+    public void registerSession(String worldName, BingoSession session) {
+        activeSessions.put(worldName, session);
     }
 
-    public void unregisterSession(String sessionId) {
-        BingoSession session = activeSessions.remove(sessionId);
+    public void unregisterSession(String worldName) {
+        BingoSession session = activeSessions.remove(worldName);
         if (session != null) {
             session.conclude();
         }
     }
 
-    public BingoSession getSession(String sessionId) {
-        return activeSessions.get(sessionId);
+    public BingoSession getSession(String worldName) {
+        return activeSessions.get(worldName);
     }
 
     public BingoSession getSessionForPlayer(Player player) {
         for (BingoSession session : activeSessions.values()) {
-            for (Player p : session.getPlayers()) {
-                if (p.getUniqueId().equals(player.getUniqueId())) {
-                    return session;
-                }
+            if (session.getPlayerUuids().contains(player.getUniqueId())) {
+                return session;
             }
         }
         return null;
@@ -72,5 +82,9 @@ public class BingoPlugin extends JavaPlugin {
 
     public BingoScoreboardManager getScoreboardManager() {
         return scoreboardManager;
+    }
+
+    public RGASessionControl getRgaSessionControl() {
+        return rgaSessionControl;
     }
 }

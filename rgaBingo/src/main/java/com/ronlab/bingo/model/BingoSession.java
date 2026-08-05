@@ -3,8 +3,8 @@ package com.ronlab.bingo.model;
 import com.ronlab.bingo.gui.BingoCardGUI;
 import com.ronlab.bingo.hud.BingoScoreboardManager;
 import com.ronlab.bingo.util.MaterialPoolManager;
-import com.ronlab.rga.api.RgaControl;
-import com.ronlab.rga.api.event.GameSessionRequestConcludeEvent;
+import com.ronlab.rga.api.RGASessionControl;
+import com.ronlab.rga.api.event.RGAGameRequestConcludeEvent;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -27,10 +27,9 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class BingoSession {
 
-    private final String sessionId;
-    private final World world;
-    private final List<Player> players;
-    private final RgaControl rgaControl;
+    private final String worldName;
+    private final List<UUID> playerUuids;
+    private final RGASessionControl rgaSessionControl;
     private final Plugin plugin;
     private final BingoScoreboardManager scoreboardManager;
 
@@ -42,33 +41,59 @@ public class BingoSession {
     private BukkitTask timerTask;
     private BukkitTask countdownTask;
 
-    public BingoSession(String sessionId, World world, List<Player> players, RgaControl rgaControl, Plugin plugin, BingoScoreboardManager scoreboardManager) {
-        this.sessionId = sessionId;
-        this.world = world;
-        this.players = new ArrayList<>(players);
-        this.rgaControl = rgaControl;
+    public BingoSession(String worldName, List<UUID> playerUuids, RGASessionControl rgaSessionControl, Plugin plugin, BingoScoreboardManager scoreboardManager) {
+        this.worldName = worldName;
+        this.playerUuids = List.copyOf(playerUuids);
+        this.rgaSessionControl = rgaSessionControl;
         this.plugin = plugin;
         this.scoreboardManager = scoreboardManager;
     }
 
     public void initialize() {
-        // Generate randomized 5x5 Bingo cards per player
-        for (Player player : players) {
+        for (UUID uuid : playerUuids) {
+            Player player = Bukkit.getPlayer(uuid);
             List<Material> materials = MaterialPoolManager.getRandomMaterials(25);
             BingoCard card = new BingoCard(5, materials);
-            playerCards.put(player.getUniqueId(), card);
+            playerCards.put(uuid, card);
 
-            // Store frozen location for countdown
-            frozenLocations.put(player.getUniqueId(), player.getLocation());
-
-            // Give Bingo Card item in hotbar slot 8
-            giveHotbarCardItem(player);
-
-            // Create HUD board
-            scoreboardManager.createBoard(player, this);
+            if (player != null && player.isOnline()) {
+                frozenLocations.put(uuid, player.getLocation());
+                giveHotbarCardItem(player);
+                scoreboardManager.createBoard(player, this);
+            }
         }
 
+        // Silently credit items already in each player's inventory at game start.
+        // Scheduled 1 tick after initialize() so all card state is fully committed.
+        Bukkit.getScheduler().runTask(plugin, this::snapshotPreGameInventories);
+
         startCountdown();
+    }
+
+    /**
+     * Silently marks card items already present in each player's inventory at session start.
+     * No chime or actionbar feedback — these are pre-game possessions, not in-game finds.
+     */
+    private void snapshotPreGameInventories() {
+        for (UUID uuid : playerUuids) {
+            Player player = Bukkit.getPlayer(uuid);
+            if (player == null || !player.isOnline()) continue;
+
+            BingoCard card = playerCards.get(uuid);
+            if (card == null) continue;
+
+            for (ItemStack stack : player.getInventory().getContents()) {
+                if (stack == null || stack.getType() == Material.AIR) continue;
+                Material mat = stack.getType();
+                if (card.isOnCard(mat) && !card.isAlreadyCompleted(mat)) {
+                    card.markItemCompleted(mat, player);
+                    plugin.getLogger().fine("[rgaBingo] Pre-game inventory credit: " + mat.name() + " for " + player.getName());
+                }
+            }
+
+            // Refresh HUD to reflect silently credited items
+            scoreboardManager.updateBoard(player, this);
+        }
     }
 
     public void giveHotbarCardItem(Player player) {
@@ -93,8 +118,9 @@ public class BingoSession {
             @Override
             public void run() {
                 if (secondsLeft > 0) {
-                    for (Player player : players) {
-                        if (player.isOnline()) {
+                    for (UUID uuid : playerUuids) {
+                        Player player = Bukkit.getPlayer(uuid);
+                        if (player != null && player.isOnline()) {
                             Title title = Title.title(
                                     Component.text(String.valueOf(secondsLeft), getCountdownColor(secondsLeft), TextDecoration.BOLD),
                                     Component.text("Get ready!", NamedTextColor.GRAY),
@@ -109,8 +135,9 @@ public class BingoSession {
                     state = BingoSessionState.IN_GAME;
                     frozenLocations.clear();
 
-                    for (Player player : players) {
-                        if (player.isOnline()) {
+                    for (UUID uuid : playerUuids) {
+                        Player player = Bukkit.getPlayer(uuid);
+                        if (player != null && player.isOnline()) {
                             Title title = Title.title(
                                     Component.text("GO!", NamedTextColor.GREEN, TextDecoration.BOLD),
                                     Component.text("Collect items to complete a Bingo line!", NamedTextColor.YELLOW),
@@ -158,7 +185,20 @@ public class BingoSession {
         }.runTaskTimer(plugin, 20L, 20L);
     }
 
-    public boolean handleItemAcquisition(Player player, Material material) {
+    /**
+     * Unified acquisition entry point for all item delivery pathways
+     * (pickup, craft, inventory click/drag, container transfer scan).
+     *
+     * <p>Guards (in order):
+     * <ol>
+     *   <li>Session must be IN_GAME state.</li>
+     *   <li>Material must be on the player's card (fast {@code materialMap} lookup).</li>
+     *   <li>Slot must not already be completed (prevents re-pickup chime desync).</li>
+     * </ol>
+     *
+     * @return true if the slot was newly completed during this call.
+     */
+    public boolean checkAndCompleteMaterial(Player player, Material material) {
         if (state != BingoSessionState.IN_GAME) {
             return false;
         }
@@ -168,24 +208,29 @@ public class BingoSession {
             return false;
         }
 
+        // Guard 1: material not on card — fast exit, no slot work
+        if (!card.isOnCard(material)) {
+            return false;
+        }
+
+        // Guard 2: already completed — prevents re-pickup chime / double state transition
+        if (card.isAlreadyCompleted(material)) {
+            return false;
+        }
+
         boolean updated = card.markItemCompleted(material, player);
         if (updated) {
-            // Audio cue
             player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 1.0f, 1.0f);
 
-            // Actionbar message
             String formattedName = formatMaterialName(material);
             player.sendActionBar(Component.text("✔ Found: " + formattedName + "!", NamedTextColor.GREEN, TextDecoration.BOLD));
 
-            // Dynamic HUD update
             scoreboardManager.updateAll(this);
 
-            // If player currently has card GUI open, refresh it
             if (player.getOpenInventory().getTitle().startsWith(BingoCardGUI.GUI_TITLE_PREFIX)) {
                 BingoCardGUI.openGUI(player, card);
             }
 
-            // Check Win Condition (First line or blackout)
             if (card.hasBingoLine()) {
                 handleWin(player);
             }
@@ -196,15 +241,39 @@ public class BingoSession {
         return false;
     }
 
+    /**
+     * Scans a player's current inventory for any card items not yet completed.
+     * Called after inventory-state-changing events (click, drag, container pull)
+     * where the settled inventory contents are the authoritative source of truth.
+     */
+    public void scanInventoryForCompletions(Player player) {
+        if (state != BingoSessionState.IN_GAME) return;
+
+        BingoCard card = playerCards.get(player.getUniqueId());
+        if (card == null) return;
+
+        for (ItemStack stack : player.getInventory().getContents()) {
+            if (stack == null || stack.getType() == Material.AIR) continue;
+            checkAndCompleteMaterial(player, stack.getType());
+        }
+    }
+
+    /**
+     * Returns true if the given player UUID is a registered participant in this session.
+     */
+    public boolean isParticipant(UUID uuid) {
+        return playerUuids.contains(uuid);
+    }
+
     private void handleWin(Player winner) {
         state = BingoSessionState.CONCLUDED;
 
-        // Broadcast victory message
         Component victoryMsg = Component.text("BINGO! ", NamedTextColor.GOLD, TextDecoration.BOLD)
                 .append(Component.text(winner.getName() + " completed a Bingo line in " + formatTime(elapsedSeconds) + "!", NamedTextColor.GREEN));
 
-        for (Player p : players) {
-            if (p.isOnline()) {
+        for (UUID uuid : playerUuids) {
+            Player p = Bukkit.getPlayer(uuid);
+            if (p != null && p.isOnline()) {
                 p.sendMessage(victoryMsg);
                 Title title = Title.title(
                         Component.text(winner.getName() + " WINS!", NamedTextColor.GOLD, TextDecoration.BOLD),
@@ -216,14 +285,14 @@ public class BingoSession {
             }
         }
 
-        // Transition winner to spectator via RGA control and request session conclusion
-        if (rgaControl != null) {
-            rgaControl.setSpectator(winner, true);
-            rgaControl.requestConclude(sessionId, winner.getName());
+        Map<UUID, Number> scores = getFinalScores();
+
+        if (rgaSessionControl != null) {
+            rgaSessionControl.setSpectator(winner, true);
+            rgaSessionControl.requestSessionConclude(worldName, winner.getName() + " completed a Bingo line!", scores);
         }
 
-        // Fire GameSessionRequestConcludeEvent to notify RGA orchestrator
-        GameSessionRequestConcludeEvent concludeEvent = new GameSessionRequestConcludeEvent(sessionId, winner.getName(), "BINGO_LINE_COMPLETED");
+        RGAGameRequestConcludeEvent concludeEvent = new RGAGameRequestConcludeEvent("bingo", "Bingo", worldName, playerUuids, winner.getName() + " WINS", scores);
         Bukkit.getPluginManager().callEvent(concludeEvent);
 
         conclude();
@@ -239,12 +308,22 @@ public class BingoSession {
             countdownTask.cancel();
         }
 
-        for (Player p : players) {
-            scoreboardManager.removeBoard(p);
-        }
+        // Bulk remove all FastBoard HUDs. Using removeAll() as a teardown backstop ensures
+        // boards are destroyed for participants who disconnected mid-session, preventing lingering
+        // scoreboards when they reconnect to the lobby world.
+        Bukkit.getScheduler().runTask(plugin, scoreboardManager::removeAll);
 
         playerCards.clear();
         frozenLocations.clear();
+    }
+
+    public Map<UUID, Number> getFinalScores() {
+        Map<UUID, Number> scores = new HashMap<>();
+        for (Map.Entry<UUID, BingoCard> entry : playerCards.entrySet()) {
+            BingoCard card = entry.getValue();
+            scores.put(entry.getKey(), card.getCompletedCount());
+        }
+        return scores;
     }
 
     public boolean isFrozen(Player player) {
@@ -255,16 +334,27 @@ public class BingoSession {
         return frozenLocations.get(player.getUniqueId());
     }
 
-    public String getSessionId() {
-        return sessionId;
+    public String getWorldName() {
+        return worldName;
     }
 
     public World getWorld() {
-        return world;
+        return Bukkit.getWorld(worldName);
     }
 
     public List<Player> getPlayers() {
-        return Collections.unmodifiableList(players);
+        List<Player> players = new ArrayList<>();
+        for (UUID uuid : playerUuids) {
+            Player p = Bukkit.getPlayer(uuid);
+            if (p != null && p.isOnline()) {
+                players.add(p);
+            }
+        }
+        return players;
+    }
+
+    public List<UUID> getPlayerUuids() {
+        return playerUuids;
     }
 
     public BingoSessionState getState() {

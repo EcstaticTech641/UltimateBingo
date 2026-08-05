@@ -84,6 +84,22 @@ public class BingoCard {
         return materialMap.get(material);
     }
 
+    /**
+     * Returns true if the given material is a target on this card (regardless of completion state).
+     */
+    public boolean isOnCard(Material material) {
+        return materialMap.containsKey(material);
+    }
+
+    /**
+     * Returns true if the given material is on this card AND has already been marked complete.
+     * Used to prevent re-pickup chimes and duplicate completion state transitions.
+     */
+    public boolean isAlreadyCompleted(Material material) {
+        CardSlot slot = materialMap.get(material);
+        return slot != null && slot.isCompleted();
+    }
+
     public boolean markItemCompleted(Material material, Player player) {
         CardSlot slot = materialMap.get(material);
         if (slot != null && !slot.isCompleted()) {

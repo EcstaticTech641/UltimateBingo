@@ -1,0 +1,72 @@
+# ==============================================================================
+# rgaBingo — Default Configuration Schema
+# PaperMC 26.2 / Java 25 — CPMK Micro-Companion Architecture
+# ==============================================================================
+#
+# ------------------------------------------------------------------------------
+# 🧪 SOLO QA DEVELOPER MODE (initialPlayerCount == 1)
+# ------------------------------------------------------------------------------
+# When a Bingo match is initialized with a single player (initialPlayerCount == 1),
+# the session automatically enters Solo QA Developer Mode.
+#
+# QA Testing Behavior:
+# - Win conditions freeze upon line completion so that the session does not
+#   automatically conclude or kick the player.
+# - Allows QA developers and server admins to continuously test map resets,
+#   item pickup triggers, chest GUI card interactions, actionbar updates,
+#   and minigame mechanics without restarting the session loop.
+# - Final score payload is still recorded and reported upon manual or RGA conclude.
+# ==============================================================================
+
+# ------------------------------------------------------------------------------
+# Arena Vector & Spatial Threshold Parameters
+# ------------------------------------------------------------------------------
+
+# Default spawn location vector for participants joining the Bingo match world.
+# Coordinates are relative to the active minigame session world.
+spawn-location:
+  x: 0.5
+  y: 64.0
+  z: 0.5
+  yaw: 0.0
+  pitch: 0.0
+
+# Pedestal location vector where victory pod / trophy pedestals are positioned.
+pedestal-location:
+  x: 0.5
+  y: 65.0
+  z: 10.5
+  yaw: 180.0
+  pitch: 0.0
+
+# Y-level threshold below which players are safely teleported back to spawn-location.
+# Prevents players from dying to void or falling off world boundaries during gameplay.
+fall-threshold-y: -64.0
+
+# ------------------------------------------------------------------------------
+# Match Rules & Timing Limits
+# ------------------------------------------------------------------------------
+
+# Maximum time limit for a Bingo match in seconds (0 = unlimited time).
+# Default: 1200 seconds (20 minutes).
+time-limit-seconds: 1200
+
+# Pre-match countdown duration in seconds before movement unfreezes.
+# Default: 3 seconds.
+countdown-seconds: 3
+
+# ------------------------------------------------------------------------------
+# Card & Gameplay Options
+# ------------------------------------------------------------------------------
+
+# Size of the square Bingo grid (e.g., 5 for a 5x5 card with 25 item slots).
+card-size: 5
+
+# Hotbar slot index (0-8) where the Bingo Card item is placed upon session start.
+# Default: 8 (9th slot in hotbar).
+card-item-slot: 8
+
+# Sound feedback settings for item completion and victory toasts.
+sounds:
+  item-pickup: "entity.experience_orb.pickup"
+  win-toast: "ui.toast.challenge_complete"
